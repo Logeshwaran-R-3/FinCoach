@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Log in - FinCoach{% endblock %}
+{% block shell %}
+<div class="auth-wrap">
+<div class="auth-brand">
+<a class="brand" href="{{ url_for('login') }}" aria-label="FinCoach home" style="padding:0">
+<span class="brand-mark" aria-hidden="true">F</span>
+<span><span class="brand-name">FinCoach</span><br><span class="brand-sub">Money Intelligence</span></span>
+</a>
+<h1>Know your money.<br>Shape your future.</h1>
+<p>FinCoach turns messy bank statements into a calm, honest picture of your income, spending, and goals — every figure labeled by how it was derived.</p>
+<ul class="auth-points">
+<li><span class="tick" aria-hidden="true">✓</span>Statements, screenshots, SMS alerts, or manual entries — ingested locally.</li>
+<li><span class="tick" aria-hidden="true">✓</span>Every rupee marked verified, estimated, inferred, or projected.</li>
+<li><span class="tick" aria-hidden="true">✓</span>What-if simulator shows how choices move your goals.</li>
+</ul>
+</div>
+<div class="auth-form-col">
+<div class="auth-card">
+<h1>Welcome back</h1>
+<p class="muted">Log in to your local FinCoach workspace.</p>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<p class="flash-{{ category }}" role="{% if category == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+{% endfor %}
+{% endwith %}
+<form method="post" action="{{ url_for('login') }}" novalidate>
+<div class="field">
+<label for="email">Email</label>
+<input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+</div>
+<div class="field">
+<label for="password">Password</label>
+<input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Your password">
+</div>
+{% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+<button type="submit" class="btn-block btn-lg">Log in</button>
+</form>
+<p class="auth-alt">New here? <a href="{{ url_for('signup') }}">Create an account</a>.</p>
+<div class="demo-box">Demo login: <code>demo@fincoach.local</code> / <code>demo1234</code> (create it once via Sign up — accounts live in Supabase)</div>
+</div>
+</div>
+</div>
+{% endblock %}

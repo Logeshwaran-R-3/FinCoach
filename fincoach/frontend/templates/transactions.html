@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Transactions - FinCoach{% endblock %}
+{% block crumb %}Transactions{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Ledger</div>
+<h1>Transactions</h1>
+<p class="lede">Every row keeps its source and provenance. Click any row to inspect it — correcting a category teaches FinCoach a rule for next time.</p>
+</div>
+<div class="page-actions">
+<a class="btn btn-secondary" href="{{ url_for('sources') }}">{{ icons.icon('sources') }}Add source</a>
+</div>
+</div>
+
+{% set ns = namespace(income=0, expenses=0) %}
+{% for t in transactions %}{% if t.amount > 0 %}{% set ns.income = ns.income + t.amount %}{% else %}{% set ns.expenses = ns.expenses - t.amount %}{% endif %}{% endfor %}
+
+<div class="grid kpis" role="region" aria-label="Transaction summary">
+<div class="kpi accent-teal"><div class="kpi-label">Rows{% if active %} · {{ active }}{% endif %}</div><div class="kpi-value num">{{ transactions|length }}</div><div class="kpi-sub">{% if active %}Filtered by category{% else %}Across all categories{% endif %}</div></div>
+<div class="kpi accent-amber"><div class="kpi-label">Income in view</div><div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(ns.income) }}</div><div class="kpi-sub">{{ m.origin_badge('verified', origin_labels) }}</div></div>
+<div class="kpi accent-ink"><div class="kpi-label">Expenses in view</div><div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(ns.expenses) }}</div><div class="kpi-sub">{{ m.origin_badge('verified', origin_labels) }}</div></div>
+<div class="kpi accent-honey"><div class="kpi-label">Learned rules</div><div class="kpi-value num">{{ rules|length }}</div><div class="kpi-sub">{{ m.origin_badge('inferred', origin_labels) }} From your corrections</div></div>
+</div>
+
+<div data-table>
+<div class="panel" style="margin-bottom:14px">
+<div class="toolbar" role="search">
+<form method="get" action="{{ url_for('transactions') }}" class="search" role="search">{{ icons.icon('search') }}<input type="search" name="q" value="{{ q }}" placeholder="Search description, merchant, amount…" aria-label="Search transactions" data-table-search>{% if active %}<input type="hidden" name="category" value="{{ active }}">{% endif %}</form>
+<form method="get" action="{{ url_for('transactions') }}" style="display:flex;gap:8px;align-items:center">
+<label class="small" for="f-category">Category</label>
+<select name="category" id="f-category" onchange="this.form.submit()">
+<option value="">All</option>
+{% for c in used %}
+<option value="{{ c }}" {% if c == active %}selected{% endif %}>{{ c }}</option>
+{% endfor %}
+</select>
+</form>
+<label class="small" for="f-type">Type</label>
+<select id="f-type" data-table-filter="type" aria-label="Filter by type">
+<option value="">All types</option>
+<option value="income">Income</option>
+<option value="debit">Spent (debit)</option>
+<option value="other">Other</option>
+</select>
+<label class="small" for="f-origin">Origin</label>
+<select id="f-origin" data-table-filter="origin" aria-label="Filter by origin">
+<option value="">All origins</option>
+{% for o in origins %}
+<option value="{{ o }}">{{ o }}</option>
+{% endfor %}
+</select>
+<button type="button" class="btn btn-ghost btn-sm" data-table-reset>Reset</button>
+<span class="count" data-table-count aria-live="polite"></span>
+</div>
+</div>
+
+{% if transactions %}
+<div class="table-wrap">
+<table class="data" aria-label="Transactions">
+<thead><tr>
+<th class="sortable" data-sort-key="date">Date<span class="arrow" aria-hidden="true"></span></th>
+<th>Description</th>
+<th class="num sortable" data-sort-key="amount">Amount<span class="arrow" aria-hidden="true"></span></th>
+<th class="sortable" data-sort-key="category">Category<span class="arrow" aria-hidden="true"></span></th>
+<th>Type</th>
+<th>Origin</th>
+<th>Source</th>
+</tr></thead>
+<tbody>
+{% for t in transactions %}
+{% set row = {'id': t.id, 'date': t.date, 'description': t.description, 'merchant': t.merchant or '', 'amount': t.amount, 'category': t.category or 'other', 'type': t.type or 'other', 'origin': t.origin, 'source_name': t.source_name or '', 'source_kind': t.source_kind or '', 'note': t.note or '', 'hash': t.hash or ''} %}
+<tr class="clickable" tabindex="0" data-txn='{{ row|tojson }}' data-type="{{ t.type or 'other' }}" data-origin="{{ t.origin }}" aria-label="Inspect {{ t.description }}">
+<td data-sort="date" data-sort-value="{{ t.date }}" style="white-space:nowrap">{{ t.date }}</td>
+<td><strong>{{ t.description }}</strong>{% if t.merchant and t.merchant|lower != t.description|lower %}<br><span class="muted small">{{ t.merchant }}</span>{% endif %}</td>
+<td class="num {{ 'amt-pos' if t.amount >= 0 else 'amt-neg' }}" data-sort="amount" data-sort-value="{{ t.amount }}">{{ t.amount|inr }}</td>
+<td data-sort="category"><span class="cat-chip"><span class="cat-dot" style="background:{{ m.cat_color(t.category or 'other')|trim }}"></span>{{ t.category or 'other' }}</span></td>
+<td><span class="type-tag {{ t.type or 'other' }}">{{ t.type or 'other' }}</span></td>
+<td>{{ m.origin_badge(t.origin, origin_labels) }}</td>
+<td>{% if t.source_id %}<a href="{{ url_for('sources') }}#source-{{ t.source_id }}" title="Open source #{{ t.source_id }}">{{ t.source_name }}</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+<p class="muted small" data-table-empty style="display:none;margin-top:10px">No rows match these filters. <button type="button" class="btn btn-ghost btn-sm" data-table-reset>Clear filters</button></p>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('transactions') }}</div>
+<h3>{% if active %}Nothing in {{ active }} yet{% else %}No transactions yet{% endif %}</h3>
+<p>{% if active %}Try another category, or upload a source that contains it.{% else %}Upload a statement and your ledger will appear here.{% endif %}</p>
+{% if active %}<a class="btn btn-sm btn-secondary" href="{{ url_for('transactions') }}">Show all</a>{% else %}<a class="btn btn-sm" href="{{ url_for('sources') }}">Go to sources</a>{% endif %}
+</div>
+{% endif %}
+</div>
+
+<div class="grid two" style="margin-top:16px">
+<div class="panel">
+<div class="panel-head"><h2>Learned rules</h2><span class="badge inferred">inferred</span></div>
+{% if rules %}
+<div class="stat-list">
+{% for r in rules %}
+<div class="stat-row">
+<span class="stat-ico">{{ icons.icon('spark') }}</span>
+<div class="stat-body"><div class="stat-name">“{{ r.pattern }}” → {{ r.category }}</div><div class="stat-note">Matched {{ r.hits or 0 }} time(s)</div></div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">No learned rules yet. Correct any transaction's category and FinCoach will remember the merchant keywords.</p>
+{% endif %}
+</div>
+<div class="panel tint">
+<div class="panel-head"><h2>How corrections work</h2></div>
+<div class="stat-list">
+<div class="stat-row"><span class="stat-ico">1</span><div class="stat-body"><div class="stat-name">Open a row, pick the right category</div><div class="stat-note">The change saves immediately.</div></div></div>
+<div class="stat-row"><span class="stat-ico">2</span><div class="stat-body"><div class="stat-name">Keywords are learned</div><div class="stat-note">Merchant words become rules with hit counts, shown left.</div></div></div>
+<div class="stat-row"><span class="stat-ico">3</span><div class="stat-body"><div class="stat-name">Future imports obey them</div><div class="stat-note">Learned rules run before keyword defaults on every ingest.</div></div></div>
+</div>
+</div>
+</div>
+
+<div class="scrim" data-drawer-scrim style="display:none"></div>
+<aside class="drawer" data-drawer="txn" aria-hidden="true" aria-label="Transaction details" role="dialog">
+<div class="drawer-head">
+<h2 data-txn-title>Transaction</h2>
+<button type="button" class="btn btn-ghost btn-icon" data-drawer-close aria-label="Close details">{{ icons.icon('x') }}</button>
+</div>
+<div class="drawer-body">
+<dl class="kv">
+<dt>Date</dt><dd data-txn-field="date">—</dd>
+<dt>Amount</dt><dd><span data-txn-field="amount">—</span></dd>
+<dt>Merchant</dt><dd data-txn-field="merchant">—</dd>
+<dt>Type</dt><dd data-txn-field="type">—</dd>
+<dt>Provenance</dt><dd data-txn-field="origin">—</dd>
+<dt>Source file</dt><dd data-txn-field="source_name">—</dd>
+<dt>Note</dt><dd data-txn-field="note">—</dd>
+</dl>
+<h3>Correct category</h3>
+<form method="post" data-txn-form data-action-template="/transactions/__ID__/category">
+<div class="form-row">
+<select name="category" aria-label="Corrected category" style="flex:1;min-width:160px">
+{% for c in categories %}
+<option value="{{ c }}">{{ c }}</option>
+{% endfor %}
+</select>
+<button type="submit">Save &amp; learn</button>
+</div>
+<p class="muted small">Saving teaches a rule from this merchant's keywords — the confirmation names what was learned.</p>
+</form>
+</div>
+</aside>
+{% endblock %}

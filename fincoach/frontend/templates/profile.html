@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% block title %}Profile - FinCoach{% endblock %}
+{% block crumb %}Profile{% endblock %}
+{% block content %}
+<div class="page-head">
+<div style="display:flex;gap:14px;align-items:center">
+<span class="avatar avatar-lg" aria-hidden="true">{{ (details.name or details.email)[0]|upper }}</span>
+<div>
+<div class="kicker">Account</div>
+<h1>{{ details.name or "Your profile" }}</h1>
+<p class="lede">{{ details.email }}</p>
+</div>
+</div>
+</div>
+
+<div class="grid golden">
+<div class="stack">
+<div class="panel">
+<div class="panel-head"><h2>Account details</h2></div>
+<div class="stat-list">
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Name</div><div class="stat-note">{{ details.name or "—" }}</div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Email</div><div class="stat-note">{{ details.email or "—" }}</div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Phone</div><div class="stat-note">{{ details.phone or "—" }}</div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Currency</div><div class="stat-note">{{ details.currency or "—" }}</div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">User ID</div><div class="stat-note"><code>{{ details.id or "—" }}</code></div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Member since</div><div class="stat-note">{{ details.created or "—" }}</div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Email confirmed</div><div class="stat-note">{{ details.confirmed or "—" }}</div></div></div>
+<div class="stat-row"><div class="stat-body"><div class="stat-name">Last sign in</div><div class="stat-note">{{ details.last_sign_in or "—" }}</div></div></div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-head"><h2>Edit profile</h2></div>
+<form method="post" action="{{ url_for('profile_page') }}">
+<div class="form-grid">
+<div class="field"><label for="p-name">Name</label><input type="text" id="p-name" name="name" value="{{ details.name }}" maxlength="80" autocomplete="name"></div>
+<div class="field"><label for="p-phone">Phone</label><input type="text" id="p-phone" name="phone" value="{{ details.phone }}" maxlength="30" autocomplete="tel"></div>
+<div class="field"><label for="p-currency">Currency</label><input type="text" id="p-currency" name="currency" value="{{ details.currency }}" maxlength="8"></div>
+</div>
+<div class="form-row" style="margin-top:12px">
+<button type="submit" style="margin-left:auto">Save changes</button>
+</div>
+</form>
+<p class="muted small">Email changes and password resets happen through your Supabase project (Authentication → Users).</p>
+</div>
+</div>
+<div class="stack">
+<div class="panel tint">
+<div class="panel-head"><h2>Your data</h2></div>
+<div class="stat-list">
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('sources') }}</span><div class="stat-body"><div class="stat-name"><a href="{{ url_for('sources') }}">{{ counts.sources }} source(s)</a></div><div class="stat-note">Archived sources excluded.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('transactions') }}</span><div class="stat-body"><div class="stat-name"><a href="{{ url_for('transactions') }}">{{ counts.transactions }} transaction(s)</a></div><div class="stat-note">From active sources.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('goals') }}</span><div class="stat-body"><div class="stat-name"><a href="{{ url_for('goals_page') }}">{{ counts.goals }} goal(s)</a></div><div class="stat-note">Track savings targets.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('clock') }}</span><div class="stat-body"><div class="stat-name"><a href="{{ url_for('reminders_page') }}">{{ counts.reminders }} reminder(s)</a></div><div class="stat-note">Bills and manual alerts.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('assistant') }}</span><div class="stat-body"><div class="stat-name"><a href="{{ url_for('assistant') }}">{{ counts.chats }} chat(s)</a></div><div class="stat-note">Saved conversations.</div></div></div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-head"><h2>Session</h2></div>
+<form method="post" action="{{ url_for('logout') }}">
+<button type="submit" class="btn-secondary">{{ icons.icon('logout') }}Log out</button>
+</form>
+</div>
+</div>
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Recurring - FinCoach{% endblock %}
+{% block crumb %}Recurring{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Subscriptions &amp; bills</div>
+<h1>Recurring payments <span class="badge inferred">inferred</span></h1>
+<p class="lede">Detected from merchants repeating across 3+ months with amounts within 2%. Price moves over 5% and skipped payments are flagged automatically.</p>
+</div>
+</div>
+
+<div class="grid kpis" role="region" aria-label="Recurring summary">
+<div class="kpi accent-teal">
+<div class="kpi-label">Active &amp; changed</div>
+<div class="kpi-value num">{{ counts.active + counts.changed }}</div>
+<div class="kpi-sub">Recurring payments on track</div>
+</div>
+<div class="kpi accent-amber">
+<div class="kpi-label">Monthly cost {{ m.origin_badge('inferred', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(monthly_cost) }}</div>
+<div class="kpi-sub">Normalized across cadences</div>
+</div>
+<div class="kpi accent-ink">
+<div class="kpi-label">Needs attention</div>
+<div class="kpi-value num">{{ counts.changed + counts.missing }}</div>
+<div class="kpi-sub">{{ counts.missing }} missing · {{ counts.changed }} changed</div>
+</div>
+<div class="kpi accent-honey">
+<div class="kpi-label">Quiet 90+ days</div>
+<div class="kpi-value num">{{ counts.inactive }}</div>
+<div class="kpi-sub">Possibly cancelled — review below</div>
+</div>
+</div>
+
+{% if flagged %}
+<div class="panel" style="margin-bottom:16px;border-color:#eec2bb">
+<div class="panel-head"><h2>Attention needed ({{ flagged|length }})</h2><span class="pill bad">Review</span></div>
+<div class="stat-list">
+{% for r in flagged %}
+<div class="stat-row">
+<span class="stat-ico" style="{% if r.status == 'missing' %}background:var(--danger-soft);color:var(--danger){% else %}background:var(--amber-soft);color:var(--amber-deep){% endif %}">{{ icons.icon('alert') }}</span>
+<div class="stat-body">
+<div class="stat-name" style="text-transform:capitalize">{{ r.merchant }} — {{ r.amount|inr }} {{ r.cadence }}</div>
+<div class="stat-note">{% if r.status == 'missing' %}Expected payment not seen since {{ r.last_date }}. Next was due {{ r.next_date }}.{% else %}Amount moved {{ "%+.1f"|format(r.amount_change_pct) }}% — last paid {{ r.last_date }}.{% endif %}</div>
+</div>
+<span class="pill {% if r.status == 'missing' %}bad{% else %}warn{% endif %}">{{ r.status }}</span>
+</div>
+{% endfor %}
+</div>
+</div>
+{% endif %}
+
+<div class="panel">
+<div class="panel-head">
+<h2>All detected ({{ items|length }})</h2>
+<div class="tools chip-row" data-card-filter="#rec-grid" data-count="#rec-count" data-empty="#rec-empty">
+<button type="button" class="chip on" data-filter-value="" aria-pressed="true">All</button>
+<button type="button" class="chip" data-filter-value="active" aria-pressed="false">Active</button>
+<button type="button" class="chip" data-filter-value="changed" aria-pressed="false">Changed</button>
+<button type="button" class="chip" data-filter-value="missing" aria-pressed="false">Missing</button>
+<button type="button" class="chip" data-filter-value="inactive" aria-pressed="false">Inactive</button>
+</div>
+</div>
+<p class="muted small" id="rec-count">{{ items|length }} of {{ items|length }} shown</p>
+{% if items %}
+<div class="rec-grid" id="rec-grid">
+{% for r in items %}
+<article class="rec-card" data-status="{{ r.status }}" aria-label="{{ r.merchant }}, {{ r.status }}">
+<div class="rec-top">
+<span class="rec-merchant">{{ r.merchant }}</span>
+{% if r.status == 'active' %}<span class="pill ok">Active</span>
+{% elif r.status == 'changed' %}<span class="pill warn">Changed</span>
+{% elif r.status == 'missing' %}<span class="pill bad">Missing</span>
+{% else %}<span class="pill neutral">Inactive</span>{% endif %}
+</div>
+<div style="display:flex;align-items:baseline;gap:10px">
+<span class="rec-amount num">{{ r.amount|inr }}</span>
+<span class="muted small">{{ r.cadence }}{% if r.direction == 'income' %} · income{% endif %}</span>
+{% if r.amount_change_pct > 0.05 %}<span class="change-up">▲ +{{ r.amount_change_pct }}%</span>
+{% elif r.amount_change_pct < -0.05 %}<span class="change-down">▼ {{ r.amount_change_pct }}%</span>
+{% else %}<span class="change-flat">stable</span>{% endif %}
+</div>
+<div class="rec-meta">
+<span>Last paid</span><b>{{ r.last_date }}</b>
+<span>Next due {{ m.origin_badge('projected', origin_labels) }}</span><b>{{ r.next_date }}</b>
+<span>Seen</span><b>{{ r.occurrences }}× across {{ r.months|length }} months</b>
+<span>Category</span><b>{{ r.category or 'other' }}</b>
+</div>
+{% if r.flags %}
+<div class="chip-row" style="margin-top:2px">
+{% for f in r.flags %}<span class="pill neutral small">{{ f }}</span>{% endfor %}
+</div>
+{% endif %}
+</article>
+{% endfor %}
+</div>
+<div class="empty" id="rec-empty" style="display:none;margin-top:12px">
+<h3>No payments with this status</h3>
+<p>Try a different filter above.</p>
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('recurring') }}</div>
+<h3>No recurring payments detected</h3>
+<p>FinCoach needs a merchant repeating across 3+ months. Upload more history to unlock detection.</p>
+<a class="btn btn-sm" href="{{ url_for('sources') }}">Add sources</a>
+</div>
+{% endif %}
+</div>
+{% endblock %}

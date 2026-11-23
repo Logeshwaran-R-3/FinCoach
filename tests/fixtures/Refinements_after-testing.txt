@@ -1,0 +1,26 @@
+1. Manual entry: Added some amount to Credit still the goal doesn't gets updated.
+2. Sources: Upload & Ingest button fails.
+3. Add Pillow, pytesseract and other dependencies that required for the web-app, in the requirements.txt
+4. OCR works but during a test the date(YYYY-MM-DD) took 2023 year as money, the image said "Transaction: Pay" but still it categorizes it as "Income". OCR wasn't working for Paytm, GPay transactional images.
+5. Remove the last block which shows: FinCoach is for educational purposes only. It provides general financial literacy information and does not provide securities advice or buy/sell recommendations. Consult a qualified professional before making decisions.
+6. Add a "Help" page(in nav menu as well), Include FAQs and contact us label with Email address.
+7. Let's provide power to the AI assistant where the user can ask questions, it uses the total user's data present in the web-app as context and answers it, Working: If a user queries about transaction page the required data is collected and fed as an context to the AI assistant via the API.
+8. Add a profile section in the top-right corner with details including but not limited to Name and Email.
+9. Ask the user to prompt their Name in the Create user section and also other necessary details that are needed to be displayed on the profile.
+10. In the review tab add custom timeline viewer to check the graphs and reports and also every report generated must be downloadable neither of the timeline.
+11. If a credit or income is added that doesn't affect the timeline of goal's period. It should reduce right.
+12. CSV uploads/.xlsx upload: Though the file has a column "type" all values in that column where "Debit" but still everything classified under "Income".
+13. PDF upload: The app can't ingest a single transaction.
+14. SMS/text: "Sent 250 to my friend gemini" can't extract/ingest data itself. Make it compatible to understand normal plain everyday text that most people uses.
+15. Prompt the user when deleting a source ask in a pop-up whether to "Delete" or "Archive" if Archived then the calculations should be recalculated excluding that source and if the user wants to regain the source then it is available under the label "Archived Sources" where the user can "Add to Source" or "Delete it". Deleting a source should make it disappear from the database as well.
+16. Check whether every page updates its data when a source is archived, re-activated and uploaded to sources.
+17. Simulate: Make the Baseline vs Scenario chart a little bigger or even make it as visible as an image when clicked, with a drop-down make the user to select the choice from list: graph, histogram, Pie chart or gantt chart and more.
+18. Allow the user the search from the Transactions list and Sources list.
+19. Add back-to-top button as a growing graph.
+20. Assistant: Keep "What it knows" at the top, the assistant need to be able to change data for the user if asked to.
+21. Every chat session should be stored in the supabase and can be able to revisit and continue the session with the context in the session. Keep the chat session navigator upon the left side of the convo tab.
+22. The app should track reminders from transactions that are made regularly at a same time and also allows the user to explicitly create a reminder with amount and reminder: prior to 2 days/1 day/1 week.
+23. Using supabase the web-app should send email to user for reminder to pay dues with description deadline and other related things.
+24. Make the chatting area that need to be scrollable once it reaches a particular length of the window.
+Example: Continuously chatting pushes the chats and answers to the top and making it scrollable to view the previous chats.
+25. Use the supabase database to store all data and also map it to the user_id. So that every data is regained once logged in.

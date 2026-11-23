@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Sign up - FinCoach{% endblock %}
+{% block shell %}
+<div class="auth-wrap">
+<div class="auth-brand">
+<a class="brand" href="{{ url_for('signup') }}" aria-label="FinCoach home" style="padding:0">
+<span class="brand-mark" aria-hidden="true">F</span>
+<span><span class="brand-name">FinCoach</span><br><span class="brand-sub">Money Intelligence</span></span>
+</a>
+<h1>Start with the truth<br>about your money.</h1>
+<p>Create a local account, upload a statement, and get an honest monthly snapshot with goals, nudges, and what-if planning.</p>
+<ul class="auth-points">
+<li><span class="tick" aria-hidden="true">✓</span>Free forever — your data stays on this machine.</li>
+<li><span class="tick" aria-hidden="true">✓</span>Recurring bills detected automatically from history.</li>
+<li><span class="tick" aria-hidden="true">✓</span>Deterministic math — no black-box advice, ever.</li>
+</ul>
+</div>
+<div class="auth-form-col">
+<div class="auth-card">
+<h1>Create your account</h1>
+<p class="muted">Accounts are handled by Supabase Auth. Your financial data stays on this machine.</p>
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% for category, message in messages %}
+<p class="flash-{{ category }}" role="{% if category == 'error' %}alert{% else %}status{% endif %}">{{ message }}</p>
+{% endfor %}
+{% endwith %}
+<form method="post" action="{{ url_for('signup') }}" novalidate>
+<div class="field">
+<label for="name">Name</label>
+<input type="text" id="name" name="name" autocomplete="name" placeholder="Priya Sharma" maxlength="80">
+<span class="hint">Shown in the top-right profile menu.</span>
+</div>
+<div class="field">
+<label for="email">Email</label>
+<input type="email" id="email" name="email" required autocomplete="email" placeholder="you@example.com">
+</div>
+<div class="field">
+<label for="password">Password</label>
+<input type="password" id="password" name="password" required minlength="8" autocomplete="new-password" placeholder="8+ characters">
+<span class="hint">At least 8 characters.</span>
+</div>
+<div class="form-grid">
+<div class="field">
+<label for="phone">Phone (optional)</label>
+<input type="tel" id="phone" name="phone" autocomplete="tel" placeholder="+91 98765 43210" maxlength="30">
+</div>
+<div class="field">
+<label for="currency">Currency (optional)</label>
+<input type="text" id="currency" name="currency" placeholder="INR" maxlength="8">
+</div>
+</div>
+<button type="submit" class="btn-block btn-lg">Create account</button>
+</form>
+<p class="auth-alt">Have an account? <a href="{{ url_for('login') }}">Log in</a>.</p>
+</div>
+</div>
+</div>
+{% endblock %}

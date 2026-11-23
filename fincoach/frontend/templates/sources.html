@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% block title %}Sources - FinCoach{% endblock %}
+{% block crumb %}Sources{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Data intake</div>
+<h1>Sources</h1>
+<p class="lede">Every number in FinCoach traces back to a source below. Upload statements, paste SMS alerts, or add manual entries — then ingest them into verified transactions.</p>
+</div>
+</div>
+
+{% set ns = namespace(txns=0, rejected=0, pending=0) %}
+{% for s in sources %}{% set ns.txns = ns.txns + (s.txn_count or 0) %}{% set ns.rejected = ns.rejected + (s.rejected_count or 0) %}{% if s.status != 'done' %}{% set ns.pending = ns.pending + 1 %}{% endif %}{% endfor %}
+
+<div class="grid kpis" role="region" aria-label="Source summary">
+<div class="kpi accent-teal">
+<div class="kpi-label">Sources</div>
+<div class="kpi-value num">{{ sources|length }}</div>
+<div class="kpi-sub">{{ ns.pending }} awaiting ingest</div>
+</div>
+<div class="kpi accent-amber">
+<div class="kpi-label">Extracted</div>
+<div class="kpi-value num">{{ ns.txns }}</div>
+<div class="kpi-sub">Verified transactions</div>
+</div>
+<div class="kpi accent-ink">
+<div class="kpi-label">Rejected rows</div>
+<div class="kpi-value num">{{ ns.rejected }}</div>
+<div class="kpi-sub">Failed validation, kept out</div>
+</div>
+<div class="kpi accent-honey">
+<div class="kpi-label">Provenance</div>
+<div class="kpi-value num" style="font-size:1.2rem">Fully traceable</div>
+<div class="kpi-sub">Each transaction links its source</div>
+</div>
+</div>
+
+<div class="grid golden-rev" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head">
+<h2>Add a source</h2>
+</div>
+<div data-tabs-wrap>
+<div class="tabs" role="tablist" data-tabs aria-label="Source types">
+<button type="button" class="tab" role="tab" aria-selected="true" aria-controls="panel-file" id="tab-file">File upload</button>
+<button type="button" class="tab" role="tab" aria-selected="false" aria-controls="panel-sms" id="tab-sms">SMS / text</button>
+<button type="button" class="tab" role="tab" aria-selected="false" aria-controls="panel-manual" id="tab-manual">Manual entry</button>
+</div>
+<div class="tab-panel on" id="panel-file" role="tabpanel" aria-labelledby="tab-file">
+<form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" data-file-form>
+<div class="form-grid" style="margin-bottom:12px">
+<div class="field">
+<label for="kind">Statement type</label>
+<select name="kind" id="kind" data-kind-select>
+<option value="csv">CSV spreadsheet</option>
+<option value="xlsx">Excel (.xlsx)</option>
+<option value="pdf">PDF statement</option>
+<option value="docx">Word (.docx)</option>
+<option value="image">Screenshot / image</option>
+</select>
+</div>
+</div>
+<div class="dropzone" data-dropzone tabindex="0" role="button" aria-label="Choose a statement file or drag it here">
+<div class="dz-icon">{{ icons.icon('sources') }}</div>
+<div><strong>Drop your statement here</strong> or click to browse</div>
+<div class="dz-name muted" data-dz-name>No file chosen yet</div>
+<input type="file" name="file" aria-label="Statement file" required>
+<div class="file-kinds" aria-label="Supported file types">
+<span class="kind-chip">PDF</span><span class="kind-chip">DOCX</span><span class="kind-chip">CSV</span><span class="kind-chip">XLSX</span><span class="kind-chip">PNG · JPG</span>
+</div>
+</div>
+<div class="form-row" style="margin-top:12px">
+<label style="display:inline-flex;align-items:center;gap:7px;font-weight:600"><input type="checkbox" name="ingest_now" value="on" checked> Ingest immediately</label>
+<button type="submit" style="margin-left:auto">{{ icons.icon('sources') }}Upload &amp; ingest</button>
+</div>
+<p class="muted small" style="margin:8px 0 0">Files stay on this machine under your data directory. Duplicates are skipped automatically.</p>
+</form>
+</div>
+<div class="tab-panel" id="panel-sms" role="tabpanel" aria-labelledby="tab-sms">
+<form method="post" action="{{ url_for('upload') }}">
+<input type="hidden" name="kind" value="sms_text">
+<div class="field">
+<label for="sms_text">Paste bank SMS / alert text</label>
+<textarea name="sms_text" id="sms_text" rows="4" placeholder="Rs 450 spent via UPI at Swiggy on 12-Nov-2026. Avl Bal Rs 23,410." required></textarea>
+<span class="hint">One alert per line works too — each parseable amount becomes a transaction.</span>
+</div>
+<div class="form-row" style="margin-top:12px">
+<button type="submit" style="margin-left:auto">Save and ingest</button>
+</div>
+</form>
+</div>
+<div class="tab-panel" id="panel-manual" role="tabpanel" aria-labelledby="tab-manual">
+<form method="post" action="{{ url_for('upload') }}">
+<input type="hidden" name="kind" value="manual">
+<div class="form-grid">
+<div class="field"><label for="m-date">Date</label><input type="date" id="m-date" name="date" data-today required></div>
+<div class="field"><label for="m-desc">Description</label><input type="text" id="m-desc" name="description" placeholder="Flat rent — November" required></div>
+<div class="field"><label for="m-amt">Amount (negative = spent)</label><input type="text" id="m-amt" name="amount" placeholder="-15000" required inputmode="decimal"><span class="hint">Income is positive, spending is negative.</span></div>
+</div>
+<div class="form-row" style="margin-top:12px">
+<button type="submit" style="margin-left:auto">{{ icons.icon('plus') }}Save entry</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+<div class="panel">
+<div class="panel-head">
+<h2>How ingestion works</h2>
+</div>
+<div class="stat-list">
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('file') }}</span><div class="stat-body"><div class="stat-name">1. Store the original</div><div class="stat-note">Your file is kept byte-for-byte so figures stay auditable.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('search') }}</span><div class="stat-body"><div class="stat-name">2. Extract rows</div><div class="stat-note">Dates, descriptions, and amounts are pulled per file type.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('check') }}</span><div class="stat-body"><div class="stat-name">3. Validate &amp; dedupe</div><div class="stat-note">Bad rows are rejected with reasons; exact duplicates are skipped.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('spark') }}</span><div class="stat-body"><div class="stat-name">4. Categorize</div><div class="stat-note">Your learned rules apply first, then keyword rules. Correcting one teaches the rest.</div></div></div>
+</div>
+</div>
+</div>
+
+<div class="panel">
+<div class="panel-head">
+<h2>Source repository ({{ sources|length }})</h2>
+<div class="tools chip-row" data-card-filter="#source-grid" data-count="#source-count" data-empty="#source-empty">
+<button type="button" class="chip on" data-filter-value="" aria-pressed="true">All</button>
+<button type="button" class="chip" data-filter-value="done" aria-pressed="false">Ingested</button>
+<button type="button" class="chip" data-filter-value="pending" aria-pressed="false">Pending</button>
+<button type="button" class="chip" data-filter-value="error" aria-pressed="false">Errors</button>
+</div>
+</div>
+<div class="toolbar" role="search" style="margin-top:12px">
+<form method="get" action="{{ url_for('sources') }}" class="search" style="display:flex;flex:1;gap:8px" data-source-search-form>
+{{ icons.icon('search') }}<input type="search" name="q" value="{{ q }}" placeholder="Search sources by name, kind, status…" aria-label="Search sources" data-source-search>
+<button type="submit" class="btn btn-ghost btn-sm">Search</button>
+</form>
+</div>
+<p class="muted small" id="source-count">{{ sources|length }} of {{ sources|length }} shown</p>
+{% if sources %}
+<div class="source-grid" id="source-grid">
+{% for s in sources %}
+<article class="source-card" id="source-{{ s.id }}" data-status="{{ s.status }}" aria-label="Source {{ s.id }}: {{ s.filename }}">
+<div class="source-top">
+<span class="source-ico {{ s.kind }}" aria-hidden="true">{{ 'SMS' if s.kind == 'sms_text' else s.kind[:4]|upper }}</span>
+<div style="min-width:0;flex:1">
+<div class="source-name" title="{{ s.filename }}">{{ s.filename }}</div>
+<div class="source-meta">#{{ s.id }} · {{ s.kind }} · {{ (s.size / 1024)|round(1) }} KB{% if s.created_at %} · {{ s.created_at[:10] }}{% endif %}</div>
+</div>
+{% if s.status == 'done' %}<span class="pill ok">Ingested</span>
+{% elif s.status == 'pending' %}<span class="pill warn">Pending</span>
+{% elif s.status == 'error' %}<span class="pill bad">Error</span>
+{% else %}<span class="pill info">{{ s.status }}</span>{% endif %}
+</div>
+{% if s.error %}<div class="source-error" role="alert">{{ s.error }}</div>{% endif %}
+<div class="source-stats">
+<div><b>{{ s.txn_count }}</b><span>extracted</span></div>
+<div><b>{{ s.rejected_count }}</b><span>rejected</span></div>
+</div>
+<div class="source-actions">
+<form method="post" action="{{ url_for('ingest_source', source_id=s.id) }}">
+<button type="submit" class="btn-sm btn-secondary">Re-ingest</button>
+</form>
+<a class="btn btn-sm btn-secondary" href="{{ url_for('transactions') }}">View txns</a>
+<button type="button" class="btn-sm btn-danger" data-open-dialog="dlg-source-{{ s.id }}">Delete…</button>
+</div>
+<dialog id="dlg-source-{{ s.id }}" aria-labelledby="dlg-source-{{ s.id }}-title">
+<div class="dialog-body">
+<button type="button" class="dialog-close" data-close aria-label="Close">✕</button>
+<h2 id="dlg-source-{{ s.id }}-title">Source #{{ s.id }}: {{ s.filename }}</h2>
+<p class="muted">Choose what happens to this source. Archived sources are hidden from every calculation until restored; deleted sources disappear from the database (extracted transactions stay, unlinked).</p>
+<div class="dialog-actions" style="justify-content:flex-start">
+<form method="post" action="{{ url_for('archive_source', source_id=s.id) }}">
+<button type="submit" class="btn-secondary">Archive</button>
+</form>
+<form method="post" action="{{ url_for('delete_source', source_id=s.id) }}">
+<button type="submit" class="btn-danger">Delete</button>
+</form>
+<button type="button" class="btn-ghost" data-close>Cancel</button>
+</div>
+</div>
+</dialog>
+</article>
+{% endfor %}
+</div>
+<div class="empty" id="source-empty" style="display:none;margin-top:12px">
+<h3>No sources match this filter</h3>
+<p>Try a different status above.</p>
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('sources') }}</div>
+<h3>No sources yet</h3>
+<p>Upload your first statement above — your dashboard builds itself from there.</p>
+<form method="post" action="{{ url_for('load_demo') }}" style="margin-top:10px">
+<button type="submit" class="btn btn-sm btn-secondary">Or explore with demo data</button>
+</form>
+</div>
+{% endif %}
+</div>
+
+<div class="panel" style="margin-top:16px">
+<div class="panel-head">
+<h2>Archived Sources ({{ archived|length }})</h2>
+<span class="pill neutral">Excluded from calculations</span>
+</div>
+<p class="muted small">Restore an archived source to count its transactions again, or delete it for good. Deleted sources disappear from the database; their extracted transactions stay in your ledger, unlinked.</p>
+{% if archived %}
+<div class="source-grid" id="archived-grid">
+{% for s in archived %}
+<article class="source-card" id="source-{{ s.id }}" data-status="archived" aria-label="Archived source {{ s.id }}: {{ s.filename }}">
+<div class="source-top">
+<span class="source-ico {{ s.kind }}" aria-hidden="true">{{ 'SMS' if s.kind == 'sms_text' else s.kind[:4]|upper }}</span>
+<div style="min-width:0;flex:1">
+<div class="source-name" title="{{ s.filename }}">{{ s.filename }}</div>
+<div class="source-meta">#{{ s.id }} · {{ s.kind }} · {{ (s.size / 1024)|round(1) }} KB{% if s.created_at %} · {{ s.created_at[:10] }}{% endif %}</div>
+</div>
+<span class="pill neutral">Archived</span>
+</div>
+<div class="source-stats">
+<div><b>{{ s.txn_count }}</b><span>extracted</span></div>
+<div><b>{{ s.rejected_count }}</b><span>rejected</span></div>
+</div>
+<div class="source-actions">
+<form method="post" action="{{ url_for('restore_source', source_id=s.id) }}">
+<button type="submit" class="btn-sm" title="Restore this source to Sources" aria-label="Restore source {{ s.id }}">Add to Source</button>
+</form>
+<form method="post" action="{{ url_for('delete_source', source_id=s.id) }}" data-confirm="Delete archived source #{{ s.id }} ({{ s.filename }}) from the database? Extracted transactions are kept, unlinked.">
+<button type="submit" class="btn-sm btn-danger">Delete</button>
+</form>
+</div>
+</article>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">Nothing archived. Archiving hides a source's transactions from every page without deleting anything.</p>
+{% endif %}
+</div>
+
+<script>
+(function () {
+  var kindByExt = { pdf: "pdf", docx: "docx", csv: "csv", xlsx: "xlsx", xls: "xlsx", png: "image", jpg: "image", jpeg: "image", webp: "image" };
+  document.querySelectorAll("[data-file-form]").forEach(function (form) {
+    var file = form.querySelector('input[type="file"]');
+    var kind = form.querySelector("[data-kind-select]");
+    if (file && kind) file.addEventListener("change", function () {
+      if (!file.files.length) return;
+      var ext = file.files[0].name.split(".").pop().toLowerCase();
+      if (kindByExt[ext]) kind.value = kindByExt[ext];
+    });
+  });
+  document.querySelectorAll("[data-today]").forEach(function (input) {
+    if (!input.value) input.value = new Date().toISOString().slice(0, 10);
+  });
+  var search = document.querySelector("[data-source-search]");
+  if (search) search.addEventListener("input", function () {
+    var q = search.value.trim().toLowerCase();
+    document.querySelectorAll("#source-grid .source-card, #archived-grid .source-card").forEach(function (card) {
+      card.style.display = !q || card.textContent.toLowerCase().indexOf(q) !== -1 ? "" : "none";
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Dashboard - FinCoach{% endblock %}
+{% block crumb %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Overview</div>
+<h1>Financial overview</h1>
+<p class="lede">{{ txn_count }} transactions across {{ profile['months_used'] }} month(s){% if latest_month %}, latest {{ latest_month|monthname }}{% endif %}.
+<span class="badge verified" title="{{ origin_labels['verified'] }}">Verified {{ profile['verified_pct'] }}%</span>
+<span class="badge inferred" title="{{ origin_labels['inferred'] }}">Inferred {{ profile['inferred_pct'] }}%</span></p>
+</div>
+<div class="page-actions">
+<a class="btn btn-secondary" href="{{ url_for('sources') }}">{{ icons.icon('sources') }}Add source</a>
+<a class="btn" href="{{ url_for('assistant') }}">{{ icons.icon('assistant') }}Ask assistant</a>
+</div>
+</div>
+
+{% if txn_count == 0 %}
+<div class="panel" role="region" aria-label="Welcome">
+<div class="empty" style="margin:0">
+<div class="empty-ico">{{ icons.icon('spark') }}</div>
+<h3>Welcome to FinCoach — your space starts empty</h3>
+<p>Upload a statement to build your dashboard, or explore first with sample figures.</p>
+<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+<a class="btn btn-sm" href="{{ url_for('sources') }}">{{ icons.icon('sources') }}Upload your data</a>
+<form method="post" action="{{ url_for('load_demo') }}" style="margin:0">
+<button type="submit" class="btn btn-sm btn-secondary">Load demo data</button>
+</form>
+</div>
+</div>
+</div>
+{% endif %}
+
+{% set last = monthly[-1] if monthly else none %}
+{% set prevm = monthly[-2] if monthly|length > 1 else none %}
+{% set sav_delta = (last.savings - prevm.savings) if (last and prevm) else none %}
+
+<div class="grid kpis" role="region" aria-label="Monthly summary">
+<div class="kpi accent-teal">
+<div class="kpi-label">Monthly income {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(profile['avg_monthly_income']) }}</div>
+<div class="kpi-sub">Average across {{ profile['months_used'] }} month(s)</div>
+</div>
+<div class="kpi accent-amber">
+<div class="kpi-label">Monthly expenses {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(profile['avg_monthly_expenses']) }}</div>
+<div class="kpi-sub">{{ m.origin_badge('inferred', origin_labels) }} Fixed {{ profile['fixed_expenses']|inr }} · Variable {{ profile['variable_expenses']|inr }}</div>
+</div>
+<div class="kpi accent-ink">
+<div class="kpi-label">Monthly savings {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(profile['savings']) }}</div>
+<div class="kpi-sub">{% if sav_delta is not none %}
+{% if sav_delta >= 0 %}<span class="trend up">▲ {{ sav_delta|inr_signed }} vs prior month</span>{% else %}<span class="trend down">▼ {{ sav_delta|inr_signed }} vs prior month</span>{% endif %}
+{% else %}Trend: {{ profile['trend'] }}{% endif %}</div>
+</div>
+<div class="kpi accent-honey">
+<div class="kpi-label">Savings rate {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num">{{ profile['savings_rate'] }}<span class="cur">%</span></div>
+<div class="kpi-sub">{% if profile['savings_rate'] >= 20 %}<span class="trend up">✓ Meets the 20% guideline</span>{% else %}<span class="trend down">Below the 20% guideline</span>{% endif %}</div>
+</div>
+</div>
+
+<div class="grid golden stack" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head">
+<h2>Income vs expenses</h2>
+<span class="badge verified">verified</span>
+</div>
+<div class="chart" data-chart="grouped"
+  data-labels='{{ monthly|map(attribute="month")|list|tojson }}'
+  data-series='[{{ {"name": "Income", "color": "#178377", "values": monthly|map(attribute="income")|list}|tojson }},{{ {"name": "Expenses", "color": "#ff9f1c", "values": monthly|map(attribute="expenses")|list}|tojson }}]'></div>
+<div class="chart-legend"><span><i style="background:#178377"></i>Income</span><span><i style="background:#ff9f1c"></i>Expenses</span></div>
+</div>
+<div class="panel">
+<div class="panel-head">
+<h2>Monthly savings</h2>
+<span class="badge verified">verified</span>
+</div>
+<div class="chart" data-chart="area" data-name="Savings" data-color="#178377"
+  data-labels='{{ monthly|map(attribute="month")|list|tojson }}'
+  data-values='{{ monthly|map(attribute="savings")|list|tojson }}'></div>
+<p class="muted small" style="margin:8px 0 0">Net saved each month. Trend: <strong>{{ profile['trend'] }}</strong>.</p>
+</div>
+</div>
+
+<div class="grid golden-rev" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head">
+<h2>{% if latest_month %}{{ latest_month|monthname }} spending{% else %}Spending{% endif %}</h2>
+<span class="badge verified">verified</span>
+</div>
+{% set ns = namespace(top=[], other=0) %}
+{% for row in by_category %}{% if loop.index <= 6 %}{% set _ = ns.top.append(row) %}{% else %}{% set ns.other = ns.other + row.total %}{% endif %}{% endfor %}
+{% if ns.other > 0 %}{% set _ = ns.top.append({'category': 'other', 'total': ns.other}) %}{% endif %}
+<div class="chart" data-chart="donut" data-slices='[{% for row in ns.top %}{{ {"name": row.category, "value": row.total, "color": m.cat_color(row.category)|trim}|tojson }}{% if not loop.last %},{% endif %}{% endfor %}]'></div>
+<div class="stat-list" style="margin-top:6px">
+{% for row in by_category[:5] %}
+<div class="stat-row">
+<span class="cat-chip"><span class="cat-dot" style="background:{{ m.cat_color(row.category)|trim }}"></span>{{ row.category }}</span>
+<span class="stat-value num" style="margin-left:auto">{{ row.total|inr }}</span>
+</div>
+{% endfor %}
+</div>
+</div>
+<div class="stack">
+<div class="panel">
+<div class="panel-head">
+<h2>Cost structure</h2>
+<span class="badge inferred">inferred</span>
+</div>
+{% set fixed = profile['fixed_expenses'] %}{% set variable = profile['variable_expenses'] %}
+{% set total_exp = (fixed + variable) if (fixed + variable) > 0 else 1 %}
+<div class="hbar-row"><span class="hbar-name">Fixed (recurring)</span><span class="hbar-track"><i style="width:{{ (fixed / total_exp * 100)|round(1) }}%;background:linear-gradient(90deg,#178377,#2ec4b6)"></i></span><span class="hbar-val num">{{ fixed|inr }}</span></div>
+<div class="hbar-row"><span class="hbar-name">Variable</span><span class="hbar-track"><i style="width:{{ (variable / total_exp * 100)|round(1) }}%;background:linear-gradient(90deg,#d97e06,#ff9f1c)"></i></span><span class="hbar-val num">{{ variable|inr }}</span></div>
+<p class="muted small" style="margin:10px 0 0">Fixed costs come from detected recurring payments, so they carry the <span class="badge inferred">inferred</span> label. <a href="{{ url_for('recurring') }}">Review detected bills</a>.</p>
+</div>
+<div class="panel">
+<div class="panel-head">
+<h2>Top categories</h2>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('transactions') }}">All transactions</a>
+</div>
+{% set topmax = profile['top_categories'][0]['total'] if profile['top_categories'] else 1 %}
+{% for c in profile['top_categories'] %}
+<div class="hbar-row"><span class="hbar-name">{{ c.category }}</span><span class="hbar-track"><i style="width:{{ (c.total / topmax * 100)|round(1) }}%;background:{{ m.cat_color(c.category)|trim }}"></i></span><span class="hbar-val num">{{ c.total|inr }}</span></div>
+{% else %}
+<p class="muted">No categorized spending yet.</p>
+{% endfor %}
+</div>
+</div>
+</div>
+
+<div class="grid golden" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head">
+<h2>Goals</h2>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('goals_page') }}">Manage goals</a>
+</div>
+{% if goals %}
+<div class="stat-list">
+{% for g in goals[:4] %}
+{% set pct = (g.current / g.target * 100) if g.target else 0 %}
+<div class="stat-row">
+{{ m.ring(pct|round(1), g.name) }}
+<div class="stat-body">
+<div class="stat-name">{{ g.name }}</div>
+<div class="progress thin" style="margin-top:6px" role="progressbar" aria-valuenow="{{ pct|round|int }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ g.name }} progress"><i style="width:{{ pct if pct <= 100 else 100 }}%"></i></div>
+<div class="stat-note">{{ g.current|inr }} of {{ g.target|inr }} · needs {{ g.progress.required_monthly|inr }}/month</div>
+</div>
+{% if g.progress.on_track %}<span class="pill ok">On track</span>{% else %}<span class="pill bad">Off track</span>{% endif %}
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('goals') }}</div>
+<h3>No goals yet</h3>
+<p>Set a target and FinCoach will track whether your savings pace gets you there.</p>
+<a class="btn btn-sm" href="{{ url_for('goals_page') }}">Create a goal</a>
+</div>
+{% endif %}
+</div>
+<div class="panel">
+<div class="panel-head">
+<h2>Nudges ({{ nudges|length }})</h2>
+<span class="badge inferred">inferred</span>
+</div>
+{% if nudges %}
+<div class="nudge-list">
+{% for n in nudges %}
+<div class="nudge sev-{{ n.severity }}">
+<span class="nudge-ico">{{ icons.icon('alert' if n.severity == 'high' else ('info' if n.severity == 'medium' else 'check')) }}</span>
+<div><p>{{ n.text }}</p><div class="nudge-src"><span class="sev sev-{{ n.severity }}">{{ n.severity }}</span> · {{ n.source }}</div></div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('check') }}</div>
+<h3>All quiet</h3>
+<p>No nudges right now — nothing overspent, overdue, or missing.</p>
+</div>
+{% endif %}
+</div>
+</div>
+
+<div class="grid golden" style="margin-bottom:16px">
+<div class="panel flush">
+<div class="panel-head" style="padding:18px 20px 0">
+<h2>Recent transactions</h2>
+<a class="btn btn-ghost btn-sm" href="{{ url_for('transactions') }}">View all</a>
+</div>
+{% if recent %}
+<div class="table-wrap" style="border:none;border-radius:0">
+<table class="data">
+<thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Category</th><th>Origin</th></tr></thead>
+<tbody>
+{% for t in recent %}
+<tr>
+<td style="white-space:nowrap">{{ t.date }}</td>
+<td>{{ t.description }}</td>
+<td class="num {{ 'amt-pos' if t.amount >= 0 else 'amt-neg' }}">{{ t.amount|inr }}</td>
+<td><span class="cat-chip"><span class="cat-dot" style="background:{{ m.cat_color(t.category or 'other')|trim }}"></span>{{ t.category or 'other' }}</span></td>
+<td>{{ m.origin_badge(t.origin, origin_labels) }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+{% else %}
+<div class="empty" style="margin:0 20px 20px">
+<div class="empty-ico">{{ icons.icon('transactions') }}</div>
+<h3>No transactions yet</h3>
+<p>Upload a statement to see your money here.</p>
+<a class="btn btn-sm" href="{{ url_for('sources') }}">Go to sources</a>
+</div>
+{% endif %}
+</div>
+<div class="panel">
+<div class="panel-head"><h2>Quick actions</h2></div>
+<div class="quick-grid">
+<a class="quick-action amber" href="{{ url_for('sources') }}">{{ icons.icon('sources') }}Upload statement</a>
+<a class="quick-action" href="{{ url_for('simulate') }}">{{ icons.icon('simulate') }}Run a what-if</a>
+<a class="quick-action" href="{{ url_for('goals_page') }}">{{ icons.icon('goals') }}Add goal</a>
+<a class="quick-action" href="{{ url_for('review') }}">{{ icons.icon('review') }}Monthly review</a>
+<a class="quick-action" href="{{ url_for('recurring') }}">{{ icons.icon('recurring') }}Check bills</a>
+<a class="quick-action" href="{{ url_for('assistant') }}">{{ icons.icon('assistant') }}Ask a question</a>
+</div>
+<p class="muted small" style="margin:12px 0 0">{{ disclaimer }}</p>
+</div>
+</div>
+{% endblock %}

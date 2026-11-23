@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Monthly review - FinCoach{% endblock %}
+{% block crumb %}Review{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Month in review</div>
+<h1>{% if review %}{{ review.month|monthname }}{% else %}Monthly review{% endif %}</h1>
+<p class="lede">A deterministic month-end brief: what came in, what went out, where it went, and how it compares to the month before.</p>
+</div>
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+<div class="panel-head"><h2>Reporting period</h2></div>
+{% if months %}
+<div class="month-pills" role="group" aria-label="Choose month">
+{% for mo in months %}
+<a class="chip {% if mo == active_month %}on{% endif %}" href="{{ url_for('review', month=mo) }}" {% if mo == active_month %}aria-current="true"{% endif %}>{{ mo|monthname }}</a>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">No months of data yet — upload a source first.</p>
+{% endif %}
+</div>
+
+<div class="panel" style="margin-bottom:16px">
+<div class="panel-head">
+<h2>Timeline viewer</h2>
+<span class="badge verified">verified</span>
+</div>
+<form method="get" action="{{ url_for('review') }}" class="form-row" role="search" aria-label="Month range">
+<label class="small" for="rv-start">From</label>
+<select id="rv-start" name="start">
+<option value="">Earliest</option>
+{% for mo in months|sort %}
+<option value="{{ mo }}" {% if mo == range_start %}selected{% endif %}>{{ mo|monthname }}</option>
+{% endfor %}
+</select>
+<label class="small" for="rv-end">To</label>
+<select id="rv-end" name="end">
+<option value="">Latest</option>
+{% for mo in months|sort %}
+<option value="{{ mo }}" {% if mo == range_end %}selected{% endif %}>{{ mo|monthname }}</option>
+{% endfor %}
+</select>
+{% if active_month %}<input type="hidden" name="month" value="{{ active_month }}">{% endif %}
+<button type="submit" class="btn-sm">Show range</button>
+{% if range_rows %}
+<a class="btn btn-sm btn-secondary" href="{{ url_for('review_csv', start=range_rows[0].month, end=range_rows[-1].month) }}">Download CSV</a>
+<button type="button" class="btn btn-sm btn-ghost" onclick="window.print()">Print view</button>
+{% endif %}
+</form>
+{% if range_rows %}
+<div class="table-wrap" style="margin-top:12px">
+<table class="data" aria-label="Month range timeline">
+<thead><tr><th>Month</th><th class="num">Income</th><th class="num">Expenses</th><th class="num">Savings</th><th class="num">Rate</th><th class="num">Txns</th></tr></thead>
+<tbody>
+{% for r in range_rows %}
+<tr>
+<td><a href="{{ url_for('review', month=r.month) }}">{{ r.month|monthname }}</a></td>
+<td class="num amt-pos">{{ r.income|inr }}</td>
+<td class="num amt-neg">{{ r.expenses|inr }}</td>
+<td class="num">{{ r.savings|inr }}</td>
+<td class="num">{{ r.savings_rate }}%</td>
+<td class="num">{{ r.data_quality.txn_count }}</td>
+</tr>
+{% endfor %}
+</tbody>
+<tfoot><tr><td><strong>Range total</strong></td><td class="num"><strong>{{ range_totals.income|inr }}</strong></td><td class="num"><strong>{{ range_totals.expenses|inr }}</strong></td><td class="num"><strong>{{ range_totals.savings|inr }}</strong></td><td colspan="2"></td></tr></tfoot>
+</table>
+</div>
+<p class="muted small" style="margin:8px 0 0">CSV download covers the same range: per-month income/expenses/savings plus per-month category spending.</p>
+{% elif range_start or range_end %}
+<p class="muted" style="margin:10px 0 0">No months in that range yet.</p>
+{% else %}
+<p class="muted" style="margin:10px 0 0">Pick a month range to compare months side by side, with graphs above and a downloadable CSV report.</p>
+{% endif %}
+</div>
+
+{% if review %}
+{% set dq = review.data_quality %}
+<div class="grid kpis" role="region" aria-label="Month summary">
+<div class="kpi accent-teal">
+<div class="kpi-label">Income {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(review.income) }}</div>
+<div class="kpi-sub">{% if prev %}{% set d = review.income - prev.income %}<span class="trend {{ 'up' if d >= 0 else 'down' }}">{{ d|inr_signed }} vs {{ prev.month|monthname }}</span>{% else %}{{ dq.txn_count }} transactions{% endif %}</div>
+</div>
+<div class="kpi accent-amber">
+<div class="kpi-label">Expenses {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(review.expenses) }}</div>
+<div class="kpi-sub">{% if prev %}{% set d = review.expenses - prev.expenses %}<span class="trend {{ 'down' if d >= 0 else 'up' }}">{{ d|inr_signed }} vs {{ prev.month|monthname }}</span>{% else %}{{ dq.txn_count }} transactions{% endif %}</div>
+</div>
+<div class="kpi accent-ink">
+<div class="kpi-label">Savings {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(review.savings) }}</div>
+<div class="kpi-sub">{% if prev %}{% set d = review.savings - prev.savings %}<span class="trend {{ 'up' if d >= 0 else 'down' }}">{{ d|inr_signed }} vs {{ prev.month|monthname }}</span>{% else %}Net for the month{% endif %}</div>
+</div>
+<div class="kpi accent-honey">
+<div class="kpi-label">Savings rate {{ m.origin_badge('verified', origin_labels) }}</div>
+<div class="kpi-value num">{{ review.savings_rate }}<span class="cur">%</span></div>
+<div class="kpi-sub">{% if review.savings_rate >= 20 %}<span class="trend up">✓ Meets 20% guideline</span>{% else %}<span class="trend down">Below 20% guideline</span>{% endif %}</div>
+</div>
+</div>
+
+<div class="grid golden" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head">
+<h2>Month trajectory</h2>
+<span class="badge verified">verified</span>
+</div>
+<div class="chart" data-chart="grouped"
+  data-labels='{{ monthly|map(attribute="month")|list|tojson }}'
+  data-series='[{{ {"name": "Income", "color": "#178377", "values": monthly|map(attribute="income")|list}|tojson }},{{ {"name": "Expenses", "color": "#ff9f1c", "values": monthly|map(attribute="expenses")|list}|tojson }}]'></div>
+<div class="chart-legend"><span><i style="background:#178377"></i>Income</span><span><i style="background:#ff9f1c"></i>Expenses</span></div>
+<p class="muted small" style="margin:8px 0 0">Reviewed month: <strong>{{ review.month|monthname }}</strong>{% if prev %} · previous: {{ prev.month|monthname }}{% endif %}.</p>
+</div>
+<div class="panel">
+<div class="panel-head">
+<h2>Category breakdown</h2>
+<span class="badge verified">verified</span>
+</div>
+{% set cats = review.by_category|dictsort(by='value')|reverse|list %}
+{% set cmax = cats[0][1] if cats else 1 %}
+{% for cat, total in cats %}
+<div class="hbar-row"><span class="hbar-name">{{ cat }}</span><span class="hbar-track"><i style="width:{{ (total / cmax * 100)|round(1) }}%;background:{{ m.cat_color(cat)|trim }}"></i></span><span class="hbar-val num">{{ total|inr }}</span></div>
+{% else %}
+<p class="muted">No spending this month.</p>
+{% endfor %}
+</div>
+</div>
+
+<div class="grid two">
+<div class="panel">
+<div class="panel-head"><h2>Highlights</h2></div>
+<ul class="highlight-list">
+{% for h in review.highlights %}<li>{{ icons.icon('spark') }}<span>{{ h }}</span></li>{% endfor %}
+</ul>
+{% if review.recurring_deviations %}
+<h3 style="margin-top:14px">Recurring deviations ({{ review.recurring_deviations|length }})</h3>
+<div class="stat-list">
+{% for r in review.recurring_deviations %}
+<div class="stat-row">
+<span class="stat-ico" style="background:var(--amber-soft);color:var(--amber-deep)">{{ icons.icon('recurring') }}</span>
+<div class="stat-body"><div class="stat-name" style="text-transform:capitalize">{{ r.merchant }}</div><div class="stat-note">{{ r.status }} · {{ r.amount|inr }} {{ r.cadence }}</div></div>
+<span class="pill warn">{{ r.status }}</span>
+</div>
+{% endfor %}
+</div>
+{% endif %}
+</div>
+<div class="stack">
+<div class="panel">
+<div class="panel-head"><h2>In plain words</h2></div>
+{% for e in review.explanations %}<p>{{ e.replace(review.month, review.month|monthname) }}</p>{% endfor %}
+</div>
+<div class="panel tint">
+<div class="panel-head"><h2>Data quality</h2></div>
+<div class="goal-amounts">
+<div><span>Transactions</span><b class="num">{{ dq.txn_count }}</b></div>
+<div><span>Verified</span><b class="num">{{ dq.verified_pct }}%</b></div>
+<div><span>Inferred</span><b class="num">{{ dq.inferred_pct }}%</b></div>
+</div>
+<div class="progress" style="margin-top:10px" role="progressbar" aria-valuenow="{{ dq.verified_pct }}" aria-valuemin="0" aria-valuemax="100" aria-label="Verified share"><i style="width:{{ dq.verified_pct }}%"></i></div>
+<p class="muted small" style="margin:8px 0 0">Higher verified share means the month rests on real statements rather than rules.</p>
+</div>
+</div>
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('review') }}</div>
+<h3>No review available</h3>
+<p>Pick a month above, or upload a source to generate your first review.</p>
+<a class="btn btn-sm" href="{{ url_for('sources') }}">Go to sources</a>
+</div>
+{% endif %}
+{% endblock %}

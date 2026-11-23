@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Goals - FinCoach{% endblock %}
+{% block crumb %}Goals{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Targets</div>
+<h1>Goals</h1>
+<p class="lede">Monthly savings pace of <strong>{{ monthly_savings|inr }}</strong> <span class="badge verified">verified</span> drives every projection <span class="badge projected">projected</span>. On-track math assumes that pace stays steady.</p>
+</div>
+<div class="page-actions">
+<button type="button" data-open-dialog="dlg-goal-new">{{ icons.icon('plus') }}New goal</button>
+</div>
+</div>
+
+{% set ns = namespace(saved=0, target=0, ontrack=0) %}
+{% for g in goals %}{% set ns.saved = ns.saved + g.current %}{% set ns.target = ns.target + g.target %}{% if g.progress.on_track %}{% set ns.ontrack = ns.ontrack + 1 %}{% endif %}{% endfor %}
+
+<div class="grid kpis" role="region" aria-label="Goal summary">
+<div class="kpi accent-teal"><div class="kpi-label">Goals</div><div class="kpi-value num">{{ goals|length }}</div><div class="kpi-sub">{{ ns.ontrack }} on track</div></div>
+<div class="kpi accent-amber"><div class="kpi-label">Saved so far</div><div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(ns.saved) }}</div><div class="kpi-sub">{{ m.origin_badge('verified', origin_labels) }}</div></div>
+<div class="kpi accent-ink"><div class="kpi-label">Total targets</div><div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(ns.target) }}</div><div class="kpi-sub">Across all goals</div></div>
+<div class="kpi accent-honey"><div class="kpi-label">Still to save</div><div class="kpi-value num"><span class="cur">Rs</span>{{ "{:,.0f}".format(ns.target - ns.saved if ns.target > ns.saved else 0) }}</div><div class="kpi-sub">{{ m.origin_badge('projected', origin_labels) }} At current pace</div></div>
+</div>
+
+{% if goals %}
+<div class="goal-grid">
+{% for g in goals %}
+{% set pct = (g.current / g.target * 100) if g.target else 0 %}
+{% set cls = 'on-track' if g.progress.on_track else 'off-track' %}
+<article class="goal-card {{ cls }}" aria-label="Goal: {{ g.name }}">
+<div class="goal-top">
+{{ m.ring(pct|round(1), g.name) }}
+<div class="goal-info">
+<h3>{{ g.name }}</h3>
+<div class="goal-facts">
+{% if g.progress.overdue %}<span class="pill bad">Overdue</span>
+{% elif g.progress.on_track %}<span class="pill ok">On track</span>
+{% else %}<span class="pill warn">Off track</span>{% endif %}
+{% if g.deadline %}<span>{{ icons.icon('clock') }} {{ g.deadline }}</span>{% else %}<span>No deadline</span>{% endif %}
+</div>
+</div>
+</div>
+<div class="progress" role="progressbar" aria-valuenow="{{ pct|round|int }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ g.name }} progress"><i style="width:{{ pct if pct <= 100 else 100 }}%"></i></div>
+<div class="goal-amounts">
+<div><span>Saved</span><b class="num">{{ g.current|inr }}</b></div>
+<div><span>Target</span><b class="num">{{ g.target|inr }}</b></div>
+<div><span>Remaining</span><b class="num">{{ g.progress.remaining|inr }}</b></div>
+</div>
+<div class="goal-facts">
+<span>Needs {{ g.progress.required_monthly|inr }}/month</span>
+<span>·</span>
+<span>Projected {{ g.progress.projected_date or 'n/a' }} {{ m.origin_badge('projected', origin_labels) }}</span>
+{% if g.progress.days_to_goal is not none %}<span>·</span><span>{{ g.progress.days_to_goal }} day(s) to go</span>{% endif %}
+{% if g.progress.months_left is not none %}<span>·</span><span>{{ g.progress.months_left }} month(s) left</span>{% endif %}
+</div>
+<div class="goal-actions">
+<button type="button" class="btn-sm" data-open-dialog="dlg-contribute" data-goal_id="{{ g.id }}" data-title="Contribute to {{ g.name }}">{{ icons.icon('plus') }}Contribute</button>
+<a class="btn btn-sm btn-secondary" href="{{ url_for('simulate') }}">Test in simulator</a>
+<form method="post" action="{{ url_for('goals_page') }}" data-confirm="Delete goal “{{ g.name }}”? This removes its contribution history.">
+<input type="hidden" name="action" value="delete">
+<input type="hidden" name="goal_id" value="{{ g.id }}">
+<button type="submit" class="btn-sm btn-danger">Delete</button>
+</form>
+</div>
+</article>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('goals') }}</div>
+<h3>No goals yet</h3>
+<p>Give your savings a destination — an emergency fund, a trip, a down payment.</p>
+<button type="button" class="btn-sm" data-open-dialog="dlg-goal-new">{{ icons.icon('plus') }}Create your first goal</button>
+</div>
+{% endif %}
+
+<dialog id="dlg-goal-new" aria-labelledby="dlg-goal-new-title">
+<div class="dialog-body">
+<button type="button" class="dialog-close" data-close aria-label="Close">×</button>
+<h2 id="dlg-goal-new-title">New goal</h2>
+<form method="post" action="{{ url_for('goals_page') }}">
+<input type="hidden" name="action" value="create">
+<div class="form-grid">
+<div class="field"><label for="ng-name">Name</label><input type="text" id="ng-name" name="name" placeholder="Emergency fund" required maxlength="80"></div>
+<div class="field"><label for="ng-target">Target (Rs)</label><input type="number" id="ng-target" name="target" min="1" step="any" placeholder="120000" required></div>
+<div class="field"><label for="ng-deadline">Deadline</label><input type="date" id="ng-deadline" name="deadline"></div>
+<div class="field"><label for="ng-current">Already saved (Rs)</label><input type="number" id="ng-current" name="current" min="0" step="any" value="0"></div>
+</div>
+<p class="muted small">Targets must be positive. Projections assume your current {{ monthly_savings|inr }}/month pace holds.</p>
+<div class="dialog-actions">
+<button type="button" class="btn-secondary" data-close>Cancel</button>
+<button type="submit">Create goal</button>
+</div>
+</form>
+</div>
+</dialog>
+
+<dialog id="dlg-contribute" aria-labelledby="dlg-contribute-title">
+<div class="dialog-body">
+<button type="button" class="dialog-close" data-close aria-label="Close">×</button>
+<h2 id="dlg-contribute-title" data-dialog-title>Record contribution</h2>
+<form method="post" action="{{ url_for('goals_page') }}">
+<input type="hidden" name="action" value="contribute">
+<input type="hidden" name="goal_id" value="">
+<div class="field"><label for="c-amount">Amount (Rs)</label><input type="number" id="c-amount" name="amount" min="1" step="any" placeholder="5000" required></div>
+<p class="muted small">Contributions must be positive and are added to the goal's saved total immediately.</p>
+<div class="dialog-actions">
+<button type="button" class="btn-secondary" data-close>Cancel</button>
+<button type="submit">Add contribution</button>
+</div>
+</form>
+</div>
+</dialog>
+{% endblock %}

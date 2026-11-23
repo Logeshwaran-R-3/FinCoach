@@ -1,0 +1,6 @@
+flask>=3
+openpyxl>=3.1  # xlsx statements
+pypdf>=4  # pdf statements
+python-docx>=1.1  # docx statements
+Pillow>=10  # image/screenshot OCR input (also needs pytesseract + tesseract)
+pytesseract>=0.3.13  # OCR text from images (also needs the Tesseract program)

@@ -1,0 +1,27 @@
+{# Shared presentation macros: category colors, origin badges, progress rings. #}
+{% macro cat_color(cat) -%}
+{% set colors = {
+  'salary': '#178377', 'freelance': '#2ec4b6', 'groceries': '#3f6b4f',
+  'dining': '#d97e06', 'rent': '#33454f', 'utilities': '#4cc3b6',
+  'transport': '#2f7ea8', 'shopping': '#caa53d', 'entertainment': '#c25e6d',
+  'health': '#758e3f', 'education': '#5a7a8c', 'travel': '#c96f4a',
+  'emi': '#7a5c3e', 'insurance': '#46586a', 'investment': '#178377',
+  'transfer': '#7d8f96', 'other': '#9aa9ae'
+} -%}
+{{ colors.get(cat, '#7d8f96') }}
+{%- endmacro %}
+
+{% macro origin_badge(origin, labels) -%}
+<span class="badge {{ origin }}" title="{{ labels.get(origin, '') }}">{{ origin }}</span>
+{%- endmacro %}
+
+{% macro ring(pct, label) -%}
+<span class="ring" role="img" aria-label="{{ label }}: {{ pct }} percent">
+<svg viewBox="0 0 84 84" aria-hidden="true">
+<circle class="ring-bg" cx="42" cy="42" r="34" fill="none" stroke-width="10"/>
+<circle class="ring-fg" cx="42" cy="42" r="34" fill="none" stroke-width="10"
+  stroke-dasharray="213.6" stroke-dashoffset="{{ (213.6 * (1 - (pct if pct <= 100 else 100) / 100))|round(1) }}"/>
+</svg>
+<span class="ring-label">{{ pct|round|int }}%</span>
+</span>
+{%- endmacro %}

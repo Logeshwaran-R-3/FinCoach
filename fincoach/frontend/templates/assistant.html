@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% block title %}Assistant - FinCoach{% endblock %}
+{% block crumb %}Assistant{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Conversational help</div>
+<h1>Assistant {% if gemini_configured %}<span class="badge verified">Gemini</span>{% else %}<span class="badge inferred">rule-based</span>{% endif %}</h1>
+<p class="lede">Ask about your money in plain words. Every figure comes straight from your data with its assumptions shown — no black-box advice, ever. Each answer is labelled with the engine that wrote it.</p>
+</div>
+</div>
+
+<div class="panel tint knows-top">
+<div class="panel-head"><h2>What it knows</h2></div>
+<div class="knows-grid">
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('wallet') }}</span><div class="stat-body"><div class="stat-name">Your snapshot</div><div class="stat-note">Income, expenses, savings, top categories.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('simulate') }}</span><div class="stat-body"><div class="stat-name">What-ifs</div><div class="stat-note">Same engine as the simulator, in words.</div></div></div>
+<div class="stat-row"><span class="stat-ico">{{ icons.icon('review') }}</span><div class="stat-body"><div class="stat-name">Month reviews</div><div class="stat-note">Try “review 2026-11”. Also: add entries, goals, and recategorize — confirmed by you first.</div></div></div>
+</div>
+</div>
+
+<div class="grid golden-rev">
+<div class="stack">
+<div class="panel">
+<div class="panel-head"><h2>Try asking</h2></div>
+<div class="suggest-row">
+<button type="button" class="chip" data-suggest="how am i doing?">How am I doing?</button>
+<button type="button" class="chip" data-suggest="how much did i spend on dining?">Dining spending?</button>
+<button type="button" class="chip" data-suggest="are my goals on track?">Goals on track?</button>
+<button type="button" class="chip" data-suggest="list my subscriptions">My subscriptions</button>
+<button type="button" class="chip" data-suggest="what if i cut dining by 30%?">Cut dining 30%?</button>
+<button type="button" class="chip" data-suggest="what if rent goes up by 2000?">Rent +Rs 2,000?</button>
+</div>
+<p class="muted small" style="margin:0">Tap a suggestion to fill the composer, or type your own question below.</p>
+</div>
+<div class="panel">
+<div class="panel-head"><h2>Change data by chat</h2></div>
+<div class="suggest-row">
+<button type="button" class="chip" data-suggest="add expense 250 for coffee">Add an expense</button>
+<button type="button" class="chip" data-suggest="create goal Goa trip 50000">Create a goal</button>
+<button type="button" class="chip" data-suggest="contribute 5000 to Emergency fund">Contribute to a goal</button>
+<button type="button" class="chip" data-suggest="recategorize Swiggy to dining">Recategorize</button>
+</div>
+<p class="muted small" style="margin:0">Every change shows a proposal first — nothing happens until you press Confirm.</p>
+</div>
+</div>
+
+<div class="panel chat-shell">
+<div class="panel-head">
+<h2>Conversation</h2>
+{% if history %}<span class="pill neutral">{{ history|length }} exchange(s)</span>{% endif %}
+<form method="post" action="{{ url_for('assistant') }}" style="margin:0">
+<input type="hidden" name="action" value="new">
+<button type="submit" class="btn btn-sm btn-secondary">+ New chat</button>
+</form>
+</div>
+<div class="chat-layout">
+<nav class="sessions" aria-label="Chats">
+<div class="sessions-head">Chats</div>
+{% if sessions %}
+<ul>
+{% for s in sessions %}
+<li><a href="{{ url_for('assistant', session=s.id) }}" class="{% if current and s.id == current.id %}active{% endif %}" {% if current and s.id == current.id %}aria-current="true"{% endif %}>{{ s.title or 'New chat' }}</a></li>
+{% endfor %}
+</ul>
+{% else %}
+<p class="muted small">No chats yet — ask below to start one.</p>
+{% endif %}
+</nav>
+<div class="chat-main">
+<div class="chat" data-chat aria-live="polite" aria-label="Conversation">
+{% if history %}
+{% for m in history %}
+{% if m.q %}<div class="msg-q">{{ m.q }}</div>{% endif %}
+{% if m.a %}<div class="msg-a"><div class="answer-head">{% if m.engine == 'gemini' %}<span class="badge verified">Gemini</span>{% else %}<span class="badge inferred">from your data</span>{% endif %}</div>{{ m.a }}</div>{% endif %}
+{% endfor %}
+{% else %}
+<div class="msg-a"><div class="answer-head"><span class="badge inferred">from your data</span></div>Hello! I'm the FinCoach assistant. Ask me how you're doing, what you spent on a category, whether your goals are on track, or pose a what-if — like “what if I cut dining by 30%?”.</div>
+{% endif %}
+</div>
+{% if pending %}
+<div class="pending-box" role="group" aria-label="Pending action">
+<div class="pending-title">Pending action — nothing applied yet</div>
+<p>{{ pending.action.summary }}</p>
+<div class="pending-btns">
+<form method="post" action="{{ url_for('assistant') }}">
+<input type="hidden" name="action" value="confirm">
+<button type="submit" class="btn btn-sm">Confirm</button>
+</form>
+<form method="post" action="{{ url_for('assistant') }}">
+<input type="hidden" name="action" value="cancel">
+<button type="submit" class="btn btn-sm btn-secondary">Cancel</button>
+</form>
+</div>
+</div>
+{% endif %}
+<form method="post" action="{{ url_for('assistant') }}" class="ask" data-assistant-form>
+{% if current %}<input type="hidden" name="session_id" value="{{ current.id }}">{% endif %}
+<input type="text" name="q" autofocus autocomplete="off" maxlength="500"
+  placeholder="e.g. what if i cut dining by 30%?" aria-label="Ask the assistant">
+<button type="submit">Ask</button>
+</form>
+<p class="msg-meta">Deterministic answers from your data · figures carry their assumptions · never stock or buy/sell advice</p>
+</div>
+</div>
+</div>
+</div>
+{% endblock %}

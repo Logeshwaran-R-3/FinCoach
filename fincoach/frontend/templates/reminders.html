@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Reminders - FinCoach{% endblock %}
+{% block crumb %}Reminders{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">Bills &amp; alerts</div>
+<h1>Reminders <span class="badge inferred">inferred</span></h1>
+<p class="lede">Regular bills are detected automatically from your history. Save manual reminders with an amount and a lead time, then email whatever is due.</p>
+</div>
+<div class="page-actions">
+<form method="post" action="{{ url_for('reminders_send') }}">
+<button type="submit" {% if not due %}disabled title="Nothing due right now"{% endif %}>{{ icons.icon('assistant') }}Email due ({{ due|length }})</button>
+</form>
+</div>
+</div>
+
+{% if not mail_configured and capture_mode %}
+<div class="notice-banner" style="margin-bottom:14px"><span>{{ icons.icon('info') }}</span><span>Test mode: emails are captured, not sent. Configure SMTP_HOST/SMTP_USER/SMTP_PASS in .env for real mail.</span></div>
+{% elif not mail_configured %}
+<div class="notice-banner" style="margin-bottom:14px"><span>{{ icons.icon('alert') }}</span><span>Email is not configured — set SMTP_HOST/SMTP_USER/SMTP_PASS in .env to send reminders. See the README for Gmail app-password setup.</span></div>
+{% endif %}
+
+<div class="grid kpis" role="region" aria-label="Reminder summary">
+<div class="kpi accent-teal"><div class="kpi-label">Detected bills</div><div class="kpi-value num">{{ bills|length }}</div><div class="kpi-sub">Auto-detected regular bills</div></div>
+<div class="kpi accent-amber"><div class="kpi-label">Saved reminders</div><div class="kpi-value num">{{ stored|length }}</div><div class="kpi-sub">Manual + adopted bills</div></div>
+<div class="kpi accent-ink"><div class="kpi-label">Due now</div><div class="kpi-value num">{{ due|length }}</div><div class="kpi-sub">Within their lead window</div></div>
+<div class="kpi accent-honey"><div class="kpi-label">Email</div><div class="kpi-value num" style="font-size:1.2rem">{% if mail_configured %}Ready{% elif capture_mode %}Test mode{% else %}Not set up{% endif %}</div><div class="kpi-sub">SMTP digest of due items</div></div>
+</div>
+
+<div class="grid two" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head"><h2>My reminders ({{ stored|length }})</h2></div>
+{% if stored %}
+<div class="stat-list">
+{% for r in stored %}
+<div class="stat-row">
+<span class="stat-ico">{{ icons.icon('clock') }}</span>
+<div class="stat-body">
+<div class="stat-name">{{ r.text }} · {{ r.amount|inr }}</div>
+<div class="stat-note">Due {{ r.due_date }} · remind {{ leads.get(r.lead, r.lead) }} · {{ r.kind }}{% if r.done %} · done{% endif %}</div>
+</div>
+{% if r in due %}<span class="pill warn">Due</span>{% elif r.done %}<span class="pill ok">Done</span>{% else %}<span class="pill neutral">Waiting</span>{% endif %}
+</div>
+<div class="form-row" style="margin:-4px 0 10px 54px">
+<form method="post" action="{{ url_for('reminders_page') }}" style="margin:0">
+<input type="hidden" name="action" value="done">
+<input type="hidden" name="reminder_id" value="{{ r.id }}">
+<input type="hidden" name="done" value="{{ '0' if r.done else '1' }}">
+<button type="submit" class="btn-sm btn-secondary">{{ 'Reopen' if r.done else 'Mark done' }}</button>
+</form>
+<form method="post" action="{{ url_for('reminders_page') }}" style="margin:0" data-confirm="Delete reminder '{{ r.text }}'?">
+<input type="hidden" name="action" value="delete">
+<input type="hidden" name="reminder_id" value="{{ r.id }}">
+<button type="submit" class="btn-sm btn-danger">Delete</button>
+</form>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div class="empty">
+<div class="empty-ico">{{ icons.icon('clock') }}</div>
+<h3>No reminders yet</h3>
+<p>Add one manually, or adopt a detected bill on the right.</p>
+</div>
+{% endif %}
+</div>
+<div class="stack">
+<div class="panel">
+<div class="panel-head"><h2>Add a manual reminder</h2></div>
+<form method="post" action="{{ url_for('reminders_page') }}">
+<input type="hidden" name="action" value="create">
+<div class="form-grid">
+<div class="field"><label for="rm-text">What</label><input type="text" id="rm-text" name="text" placeholder="Flat rent" required maxlength="120"></div>
+<div class="field"><label for="rm-amt">Amount (Rs)</label><input type="text" id="rm-amt" name="amount" placeholder="15000" required inputmode="decimal"></div>
+<div class="field"><label for="rm-due">Due date</label><input type="date" id="rm-due" name="due_date" required data-today></div>
+<div class="field"><label for="rm-lead">Remind me</label>
+<select id="rm-lead" name="lead">
+{% for value, label in leads.items() %}
+<option value="{{ value }}">{{ label }}</option>
+{% endfor %}
+</select>
+</div>
+</div>
+<div class="form-row" style="margin-top:12px">
+<button type="submit" style="margin-left:auto">{{ icons.icon('plus') }}Save reminder</button>
+</div>
+</form>
+</div>
+<div class="panel tint">
+<div class="panel-head"><h2>Detected bills ({{ bills|length }})</h2><span class="badge inferred">inferred</span></div>
+{% if bills %}
+<div class="stat-list">
+{% for b in bills %}
+<div class="stat-row">
+<span class="stat-ico">{{ icons.icon('recurring') }}</span>
+<div class="stat-body"><div class="stat-name" style="text-transform:capitalize">{{ b.merchant }} · {{ b.amount|inr }}</div><div class="stat-note">Next due {{ b.next_date }} ({{ b.cadence }}, {{ b.status }})</div></div>
+</div>
+<form method="post" action="{{ url_for('reminders_page') }}" style="margin:-4px 0 10px 54px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<input type="hidden" name="action" value="from_bill">
+<input type="hidden" name="merchant" value="{{ b.merchant }}">
+<input type="hidden" name="amount" value="{{ b.amount }}">
+<input type="hidden" name="due_date" value="{{ b.next_date }}">
+<label class="small" for="lead-{{ loop.index }}">Remind</label>
+<select id="lead-{{ loop.index }}" name="lead">
+{% for value, label in leads.items() %}
+<option value="{{ value }}">{{ label }}</option>
+{% endfor %}
+</select>
+<button type="submit" class="btn-sm btn-secondary">Remind me</button>
+</form>
+{% endfor %}
+</div>
+{% else %}
+<p class="muted">No regular bills detected yet — FinCoach needs a merchant repeating across 3+ months.</p>
+{% endif %}
+</div>
+</div>
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll("[data-today]").forEach(function (input) {
+    if (!input.value) input.value = new Date().toISOString().slice(0, 10);
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% import "_icons.html" as icons %}
+{% import "_macros.html" as m %}
+{% block title %}Simulate - FinCoach{% endblock %}
+{% block crumb %}Simulate{% endblock %}
+{% block content %}
+<div class="page-head">
+<div>
+<div class="kicker">What-if lab</div>
+<h1>What-if simulator <span class="badge projected">projected</span></h1>
+<p class="lede">Drag a slider and watch your savings — and every goal — respond instantly. All math runs on your real baseline below; nothing here is a prediction.</p>
+</div>
+</div>
+
+{% set dining_base = (profile.spend_by_category or {}).get('dining', 0) %}
+<div data-simulator="{{ url_for('api_simulate') }}"
+  data-base='{{ {"income": profile.avg_monthly_income, "expenses": profile.avg_monthly_expenses, "savings": profile.savings}|tojson }}'>
+
+<div class="grid golden" style="margin-bottom:16px">
+<div class="panel">
+<div class="panel-head">
+<h2>Scenario controls</h2>
+<span class="pill neutral" data-sim-status aria-live="polite">Loading…</span>
+</div>
+<form method="post" action="{{ url_for('simulate') }}">
+<div class="sim-controls">
+<div class="sim-control">
+<label for="in-dining">Dining spending <output data-for="dining_pct" for="in-dining">0%</output></label>
+<input type="range" id="in-dining" name="dining_pct" min="-100" max="100" step="5" value="{{ inputs.dining_pct }}" data-sim-input data-default="0" aria-describedby="hint-dining">
+<input type="number" name="dining_pct" min="-100" max="100" step="5" value="{{ inputs.dining_pct }}" data-sim-input data-default="0" aria-label="Dining change percent">
+<span class="hint" id="hint-dining">Percent change on your {{ dining_base|inr }}/month dining baseline.</span>
+</div>
+<div class="sim-control">
+<label for="in-rent">Rent change <output data-for="rent_delta" for="in-rent">Rs 0</output></label>
+<input type="range" id="in-rent" name="rent_delta" min="-20000" max="20000" step="500" value="{{ inputs.rent_delta }}" data-sim-input data-default="0">
+<input type="number" name="rent_delta" min="-20000" max="20000" step="100" value="{{ inputs.rent_delta }}" data-sim-input data-default="0" aria-label="Rent delta rupees per month">
+<span class="hint">Negative = cheaper rent. Applies flat, Rs/month.</span>
+</div>
+<div class="sim-control">
+<label for="in-income">Income change <output data-for="income_delta" for="in-income">Rs 0</output></label>
+<input type="range" id="in-income" name="income_delta" min="-30000" max="30000" step="500" value="{{ inputs.income_delta }}" data-sim-input data-default="0">
+<input type="number" name="income_delta" min="-30000" max="30000" step="100" value="{{ inputs.income_delta }}" data-sim-input data-default="0" aria-label="Income delta rupees per month">
+<span class="hint">Raise, side income — or a pay cut to stress-test.</span>
+</div>
+<div class="sim-control">
+<label for="in-save">Extra savings <output data-for="savings_delta" for="in-save">Rs 0</output></label>
+<input type="range" id="in-save" name="savings_delta" min="0" max="30000" step="500" value="{{ inputs.savings_delta }}" data-sim-input data-default="0">
+<input type="number" name="savings_delta" min="0" max="30000" step="100" value="{{ inputs.savings_delta }}" data-sim-input data-default="0" aria-label="Extra savings rupees per month">
+<span class="hint">Committed monthly transfer on top of everything else.</span>
+</div>
+</div>
+<div class="form-row" style="margin-top:16px">
+<button type="submit">Run scenario</button>
+<button type="button" class="btn-secondary" data-sim-reset>Reset</button>
+</div>
+</form>
+<div class="notice-banner" style="margin-top:14px">
+<span>{{ icons.icon('info') }}</span>
+<span>Baseline: income {{ profile.avg_monthly_income|inr }}/month, expenses {{ profile.avg_monthly_expenses|inr }}/month, savings {{ profile.savings|inr }}/month. <span class="badge verified">verified</span></span>
+</div>
+</div>
+
+<div class="panel">
+<div class="panel-head">
+<h2>Baseline vs scenario</h2>
+<span class="badge projected">projected</span>
+</div>
+<div class="form-row" style="margin-bottom:10px">
+<label class="small" for="sim-chart-type">Chart type</label>
+{# bar/line/pie/donut/histogram. A gantt chart is deliberately omitted: it #}
+{# visualizes task schedules over time, not a 3-measure comparison. #}
+<select id="sim-chart-type" data-sim-chart-type aria-label="Chart type">
+<option value="bar" selected>Bar</option>
+<option value="line">Line</option>
+<option value="pie">Pie</option>
+<option value="donut">Donut</option>
+<option value="histogram">Histogram</option>
+</select>
+<button type="button" class="btn btn-sm btn-ghost" data-sim-enlarge>Click chart to enlarge</button>
+</div>
+<div class="chart chart-lg" data-chart="grouped" data-sim-chart role="button" tabindex="0" title="Click to enlarge" aria-label="Baseline versus scenario chart. Activate to enlarge."
+  data-labels='["Income","Expenses","Savings"]'
+  data-series='[{{ {"name": "Baseline", "color": "#94a8a4", "values": [profile.avg_monthly_income, profile.avg_monthly_expenses, profile.savings if profile.savings > 0 else 0]}|tojson }},{{ {"name": "Scenario", "color": "#178377", "values": [(result.new_income if result else profile.avg_monthly_income), (result.new_expenses if result else profile.avg_monthly_expenses), ((result.new_savings if result and result.new_savings > 0 else 0) if result else (profile.savings if profile.savings > 0 else 0))]}|tojson }}]'></div>
+<div class="chart-legend"><span><i style="background:#94a8a4"></i>Baseline</span><span><i style="background:#178377"></i>Scenario</span></div>
+<p class="muted small" data-sim-chart-note style="display:none"></p>
+<dialog id="sim-enlarged" class="dialog-wide" aria-label="Enlarged baseline versus scenario chart">
+<div class="dialog-body">
+<button type="button" class="dialog-close" data-close aria-label="Close">✕</button>
+<h2 data-dialog-title>Baseline vs scenario</h2>
+<div class="chart chart-xl" data-sim-chart-big></div>
+</div>
+</dialog>
+<table class="compare-table" style="margin-top:10px" aria-label="Scenario comparison">
+<thead><tr><th scope="col">Measure</th><th scope="col">Baseline</th><th scope="col">Scenario</th></tr></thead>
+<tbody>
+<tr><td>Income / month</td><td class="num">{{ profile.avg_monthly_income|inr }}</td><td class="num" id="sim-new-income">{{ (result.new_income if result else profile.avg_monthly_income)|inr }}</td></tr>
+<tr><td>Expenses / month</td><td class="num">{{ profile.avg_monthly_expenses|inr }}</td><td class="num" id="sim-new-expenses">{{ (result.new_expenses if result else profile.avg_monthly_expenses)|inr }}</td></tr>
+<tr><td><strong>New savings / month</strong></td><td class="num">{{ profile.savings|inr }}</td><td class="num"><strong id="sim-new-savings">{{ (result.new_savings if result else profile.savings)|inr }}</strong></td></tr>
+<tr><td>Delta vs base</td><td class="num">—</td><td class="num"><span id="sim-delta" class="{% if result and result.delta_vs_base < 0 %}delta-neg{% else %}delta-pos{% endif %}">{{ (result.delta_vs_base if result else 0)|inr_signed }}</span></td></tr>
+</tbody>
+</table>
+<div class="warning-banner" data-sim-warning role="alert" style="margin-top:12px{% if not (result and result.warning) %};display:none{% endif %}">
+<span>{{ icons.icon('alert') }}</span>
+<span id="sim-warning-text">{{ result.warning if result and result.warning }}</span>
+</div>
+</div>
+</div>
+
+<div class="grid two">
+<div class="panel">
+<div class="panel-head"><h2>Goal impact</h2><span class="badge projected">projected</span></div>
+<div class="rec-grid" data-sim-goals style="grid-template-columns:1fr">
+{% if result %}
+{% for g in result.goal_impacts %}
+<div class="rec-card">
+<div class="rec-top"><span class="rec-merchant">{{ g.name }}</span>
+{% if g.on_track %}<span class="pill ok">On track</span>{% else %}<span class="pill bad">Off track</span>{% endif %}</div>
+<div class="rec-meta"><span>Needs / month</span><b>{{ g.required_monthly|inr }}</b><span>Projected</span><b>{{ g.projected_date or 'n/a' }}</b></div>
+</div>
+{% endfor %}
+{% else %}
+<p class="muted">Move any slider — goal projections update live.</p>
+{% endif %}
+</div>
+</div>
+<div class="panel tint">
+<div class="panel-head"><h2>Assumptions</h2></div>
+<ul class="assumption-list" data-sim-assumptions>
+{% if result %}{% for a in result.assumptions %}<li>{{ a }}</li>{% endfor %}
+{% else %}<li>Scenario math applies your deltas to the verified baseline above.</li>
+<li>Goal impacts assume the new savings pace stays steady.</li>{% endif %}
+</ul>
+<h3 style="margin-top:16px">Try these questions</h3>
+<div class="suggest-row">
+<button type="button" class="chip" data-sim-preset="dining" data-dining_pct="-30">Cut dining 30%</button>
+<button type="button" class="chip" data-sim-preset="rent" data-rent_delta="2000">Rent +Rs 2,000</button>
+<button type="button" class="chip" data-sim-preset="income" data-income_delta="-5000">Pay cut Rs 5,000</button>
+<button type="button" class="chip" data-sim-preset="save" data-savings_delta="5000">Save +Rs 5,000</button>
+</div>
+<p class="muted small">Presets adjust one control so you can feel each lever separately.</p>
+</div>
+</div>
+</div>
+
+<script>
+(function () {
+  var root = document.querySelector("[data-simulator]");
+  if (!root) return;
+  document.querySelectorAll("[data-sim-preset]").forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var map = { dining_pct: "dining_pct", rent_delta: "rent_delta", income_delta: "income_delta", savings_delta: "savings_delta" };
+      Object.keys(map).forEach(function (name) {
+        var key = name === "dining_pct" ? "diningPct" : name === "rent_delta" ? "rentDelta" : name === "income_delta" ? "incomeDelta" : "savingsDelta";
+        if (!(key in chip.dataset)) return;
+        root.querySelectorAll('[name="' + name + '"]').forEach(function (input) {
+          input.value = chip.dataset[key];
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+      });
+      if (window.FinCoach && window.FinCoach.toast) window.FinCoach.toast("Preset applied: " + chip.textContent.trim(), "ok");
+    });
+  });
+})();
+</script>
+{% endblock %}
